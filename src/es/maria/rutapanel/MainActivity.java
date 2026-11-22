@@ -10,10 +10,6 @@ import android.media.session.PlaybackState;
 import android.provider.Settings;
 import android.view.*;
 import android.widget.*;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -131,21 +127,22 @@ public final class MainActivity extends MediaActivity {
         else showMap(value);
     }
     private void editFavorite(String key){if(!parked())return;EditText field=new EditText(this);field.setText(prefs().getString(key,""));field.setSingleLine(true);field.setHint("Dirección (se guarda solo en este móvil)");field.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(240)});new AlertDialog.Builder(this).setTitle(key.equals("casa")?"Dirección de casa":"Dirección del trabajo").setView(field).setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->prefs().edit().putString(key,field.getText().toString().trim()).apply()).show();}
-    private void settings(){if(!parked())return;String[] options={"Activar o revocar control de música","Guardar dirección de casa","Guardar dirección del trabajo","Avisos de navegación","Privacidad y seguridad","Borrar direcciones guardadas"};new AlertDialog.Builder(this).setTitle("Ajustes · Ruta").setItems(options,(d,w)->{switch(w){case 0:musicPermission();break;case 1:editFavorite("casa");break;case 2:editFavorite("trabajo");break;case 3:showNavigationNotices();break;case 4:message("Privacidad y seguridad","Ruta 1.2.0 · Android 8 o posterior\n\nGoogle Maps usa Internet para cargar el mapa. Ruta solicita ubicación para mostrar tu posición, precisión y velocidad mientras tienes Mapa abierto. Las coordenadas no se guardan en Ruta. No lee mensajes ni guarda notificaciones.\n\nEl acceso opcional a notificaciones autoriza al sistema a entregarlas, aunque esta app no procesa su contenido. Solo consulta sesiones de música y mantiene título, artista y carátula en memoria mientras la pantalla está abierta.\n\nLas direcciones se guardan en el espacio privado de la app, sin copia de seguridad. Al calcular una ruta, el servicio de Google recibe el origen y el destino para calcular el itinerario.\n\nEl modo conducción es manual, no detecta movimiento y no bloquea otras apps. El móvil puede calentarse y consumir batería con la pantalla encendida.\n\nNo hay garantía de riesgo cero, certificación para conducción ni auditoría independiente.");break;case 5:new AlertDialog.Builder(this).setTitle("¿Borrar casa y trabajo?").setNegativeButton("Cancelar",null).setPositiveButton("Borrar",(a,n)->{prefs().edit().remove("casa").remove("trabajo").apply();toast("Direcciones borradas.");}).show();break;}}).setNegativeButton("Cerrar",null).show();}
+    private void settings(){if(!parked())return;String[] options={"Activar o revocar control de música","Guardar dirección de casa","Guardar dirección del trabajo","Créditos del mapa","Privacidad y seguridad","Borrar direcciones guardadas"};new AlertDialog.Builder(this).setTitle("Ajustes · Ruta").setItems(options,(d,w)->{switch(w){case 0:musicPermission();break;case 1:editFavorite("casa");break;case 2:editFavorite("trabajo");break;case 3:showNavigationNotices();break;case 4:message("Privacidad y seguridad","Ruta 1.2.0 · Android 8 o posterior\n\nEl mapa de OpenStreetMap usa Internet para descargar las teselas. Ruta solicita ubicación para mostrar tu posición, precisión y velocidad mientras tienes Mapa abierto. Las coordenadas no se guardan en Ruta. No lee mensajes ni guarda notificaciones.\n\nEl acceso opcional a notificaciones autoriza al sistema a entregarlas, aunque esta app no procesa su contenido. Solo consulta sesiones de música y mantiene título, artista y carátula en memoria mientras la pantalla está abierta.\n\nLas direcciones se guardan en el espacio privado de la app, sin copia de seguridad. Al calcular una ruta, Ruta descarga la red de carreteras de OpenStreetMap (Overpass) alrededor del origen y del destino y calcula el trayecto en el propio móvil con el algoritmo A*. Para trayectos de más de 60 km, el servidor público OSRM recibe el origen y el destino. El buscador de direcciones recibe el texto que escribes.\n\nEl modo conducción es manual, no detecta movimiento y no bloquea otras apps. El móvil puede calentarse y consumir batería con la pantalla encendida.\n\nNo hay garantía de riesgo cero, certificación para conducción ni auditoría independiente.");break;case 5:new AlertDialog.Builder(this).setTitle("¿Borrar casa y trabajo?").setNegativeButton("Cancelar",null).setPositiveButton("Borrar",(a,n)->{prefs().edit().remove("casa").remove("trabajo").apply();toast("Direcciones borradas.");}).show();break;}}).setNegativeButton("Cerrar",null).show();}
     private void showNavigationNotices() {
-        StringBuilder notices = new StringBuilder();
-        for (String filename : new String[]{"NOTICE.txt", "LICENSES.txt"}) {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    getAssets().open("navigation/" + filename), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) notices.append(line).append('\n');
-                notices.append('\n');
-            } catch (IOException e) {
-                message("Avisos de navegación", "Esta compilación aún no incluye los avisos oficiales completos.");
-                return;
-            }
-        }
-        message("Avisos de navegación", notices.toString());
+        message("Créditos del mapa", "Mapa y datos de carreteras © colaboradores de OpenStreetMap, "
+                + "disponibles bajo la licencia Open Database License (ODbL): openstreetmap.org/copyright
+
+"
+                + "Teselas del mapa: servidores de la Fundación OpenStreetMap.
+"
+                + "Red de carreteras para el cálculo de rutas: Overpass API.
+"
+                + "Búsqueda de direcciones: buscador del sistema o Nominatim (OpenStreetMap).
+"
+                + "Trayectos largos: servidor público OSRM.
+
+"
+                + "Visor de mapas: osmdroid (Apache License 2.0).");
     }
 
     private void message(String t,String s){new AlertDialog.Builder(this).setTitle(t).setMessage(s).setPositiveButton("Cerrar",null).show();}

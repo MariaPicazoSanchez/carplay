@@ -32,7 +32,6 @@ jobs:
         env:
           RELEASE_KEY_BASE64: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.RUTA_SIGNING_KEY_BASE64 || '' }}
           RUTA_KEY_PASSWORD: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.RUTA_KEY_PASSWORD || '' }}
-          RUTA_MAPS_API_KEY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.RUTA_MAPS_API_KEY || '' }}
         run: |
           export RUTA_SIGNING_KEY="$RUNNER_TEMP/ruta.p12"
           trap 'rm -f "$RUTA_SIGNING_KEY"' EXIT
@@ -40,7 +39,6 @@ jobs:
             umask 077
             printf '%s' "$RELEASE_KEY_BASE64" | base64 --decode > "$RUTA_SIGNING_KEY"
           elif [[ -z "$RELEASE_KEY_BASE64" && -z "$RUTA_KEY_PASSWORD" ]]; then
-            unset RUTA_MAPS_API_KEY
             RUTA_KEY_PASSWORD="$(openssl rand -hex 24)"
             export RUTA_KEY_PASSWORD
             keytool -genkeypair -keystore "$RUTA_SIGNING_KEY" -storetype PKCS12 \
@@ -51,12 +49,7 @@ jobs:
             exit 1
           fi
           unset RELEASE_KEY_BASE64
-          if [[ -n "${RUTA_MAPS_API_KEY:-}" ]]; then
-            echo "artifact=Ruta-Panel-Android-con-rutas" >> "$GITHUB_OUTPUT"
-          else
-            echo "artifact=Ruta-Panel-Android-sin-clave-navegacion" >> "$GITHUB_OUTPUT"
-            echo "::warning::La navegación integrada requiere RUTA_MAPS_API_KEY y una clave de firma estable."
-          fi
+          echo "artifact=Ruta-Panel-Android" >> "$GITHUB_OUTPUT"
           bash tools/build.sh
           bash tools/build-tests.sh
           python3 tests/auditar_apk.py

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the packaged APK after Gradle and Google Maps merge the manifests."""
+"""Checks the packaged APK after Gradle and osmdroid merge the manifests."""
 import hashlib
 import os
 import re
@@ -41,7 +41,7 @@ manifest = subprocess.check_output([aapt, 'dump', 'xmltree', apk, 'AndroidManife
 assert 'android:allowBackup(0x01010280)=(type 0x12)0x0' in manifest
 assert 'android:usesCleartextTraffic(0x010104ec)=(type 0x12)0x0' in manifest
 assert 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' in manifest
-assert 'com.google.android.geo.API_KEY' in manifest
+assert 'com.google.android.geo.API_KEY' not in manifest
 
 with zipfile.ZipFile(apk) as archive:
     assert 'classes.dex' in archive.namelist()

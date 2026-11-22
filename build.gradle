@@ -10,10 +10,8 @@ android {
         applicationId 'es.maria.rutapanel'
         minSdk 26
         targetSdk 35
-        versionCode 4
+        versionCode 5
         versionName '1.2.0'
-        manifestPlaceholders = [mapsApiKey: providers.environmentVariable('RUTA_MAPS_API_KEY')
-            .orElse(providers.gradleProperty('RUTA_MAPS_API_KEY')).getOrElse('RUTA_MAPS_UNCONFIGURED')]
     }
 
     sourceSets {
@@ -32,8 +30,8 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.android.libraries.navigation:navigation:6.3.3'
-    implementation 'com.google.android.gms:play-services-base:18.5.0'
+    // Mapa de OpenStreetMap sin clave de API ni Servicios de Google Play.
+    implementation 'org.osmdroid:osmdroid-android:6.1.20'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
 }
 
