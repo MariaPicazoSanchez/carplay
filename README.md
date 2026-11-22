@@ -43,6 +43,16 @@ El modo conducción es manual: puedes desactivarlo incluso si te mueves; la apli
 
 ## Compilación revisable
 
+### GitHub Actions
+
+El workflow **Android APK** se ejecuta con cada push, pull request o lanzamiento manual. Compila y audita la APK, la instala en un emulador Android 9 y ejecuta las pruebas de instrumentación. Si todo pasa, descarga **Ruta-Panel-Android** desde **Actions → Android APK → Artifacts**, extrae el ZIP y abre **Ruta-Panel-1.0.0.apk** en el móvil.
+
+Por defecto, cada ejecución usa una clave temporal. Una APK con esa firma se puede instalar desde cero, pero no actualizar una instalación con otra firma, incluida la APK de `dist/`. Para generar actualizaciones desde `main`, configura los secretos de Actions `RUTA_SIGNING_KEY_BASE64` (almacén PKCS12 codificado en Base64, alias `ruta`) y `RUTA_KEY_PASSWORD`. Usa el almacén original para actualizar la APK de `dist/`. Si eliges desinstalar para cambiar de firma, guarda antes las direcciones que quieras conservar, ya que se borran los datos locales.
+
+Si Android rechaza la instalación, comprueba que la versión del móvil sea Android 8 (API 26) o posterior. Con el móvil conectado por USB y ADB disponible, `adb install -r Ruta-Panel-1.0.0.apk` muestra el código exacto del rechazo. `INSTALL_FAILED_UPDATE_INCOMPATIBLE` indica que la firma difiere de la de la instalación existente.
+
+### Compilación local
+
 Se incluye todo el código de la aplicación, sus recursos vectoriales y las pruebas. Se usan únicamente las APIs de plataforma de Android.
 
 Requisitos: JDK con compilador Java, Python 3, Android SDK plataforma 35 y build-tools 35.0.0. El proyecto se compila sin Gradle ni dependencias descargadas por el proyecto.
@@ -51,8 +61,8 @@ Requisitos: JDK con compilador Java, Python 3, Android SDK plataforma 35 y build
 export ANDROID_HOME=/ruta/al/android-sdk
 export RUTA_SIGNING_KEY=/ruta/privada/ruta.p12
 # Define RUTA_KEY_PASSWORD de forma privada, sin guardarla en el repositorio.
-./tools/build.sh
-./tools/build-tests.sh
+bash tools/build.sh
+bash tools/build-tests.sh
 python3 tests/auditar_apk.py
 ```
 
