@@ -29,6 +29,20 @@ public final class PanelTests extends Instrumentation {
   wrapped(()->{media=new MediaSession(getTargetContext(),"Sesión de prueba");media.setCallback(new MediaSession.Callback(){public void onPlay(){plays++;state(PlaybackState.STATE_PLAYING);}public void onPause(){pauses++;state(PlaybackState.STATE_PAUSED);}public void onSkipToNext(){nexts++;}public void onSkipToPrevious(){prevs++;}});media.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,"Canción de prueba").putString(MediaMetadata.METADATA_KEY_ARTIST,"Artista de prueba").putLong(MediaMetadata.METADATA_KEY_DURATION,180000).build());state(PlaybackState.STATE_PAUSED);media.setActive(true);});
   Thread.sleep(800);wrapped(()->{call("bindSession",new Class<?>[]{});check(((TextView)field("title")).getText().toString().equals("Canción de prueba"),"Metadata real de MediaSession");check(((Button)field("play")).isEnabled(),"Control activado");call("transport",new Class<?>[]{int.class},1);});Thread.sleep(400);
   wrapped(()->{check(plays==1,"PLAY enviado a sesión");call("transport",new Class<?>[]{int.class},1);call("transport",new Class<?>[]{int.class},2);call("transport",new Class<?>[]{int.class},0);});Thread.sleep(400);
+  wrapped(()->((Button)field("play")).performClick());Thread.sleep(400);
+  wrapped(()->{
+      check(plays==2,"El botón reanuda la sesión pausada");
+      PlaybackState playing = new PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING,0,1f).build();
+      PlaybackState paused = new PlaybackState.Builder().setState(PlaybackState.STATE_PAUSED,0,0f).build();
+      Class<?>[] signature = {String.class, PlaybackState.class, boolean.class};
+      int spotify = (Integer)call("sessionRank",signature,"com.spotify.music",playing,false);
+      int youtube = (Integer)call("sessionRank",signature,"com.google.android.apps.youtube.music",playing,false);
+      int other = (Integer)call("sessionRank",signature,"otro.reproductor",playing,false);
+      int pausedSpotify = (Integer)call("sessionRank",signature,"com.spotify.music",paused,false);
+      int pausedCurrent = (Integer)call("sessionRank",signature,"otro.reproductor",paused,true);
+      check(spotify > youtube && youtube > other && other > pausedSpotify
+          && pausedCurrent > pausedSpotify, "Prioridad de sesiones y continuidad al pausar");
+  });
   wrapped(()->{check(pauses==1,"PAUSE enviado a sesión");check(nexts==1,"NEXT enviado a sesión");check(prevs==1,"PREVIOUS enviado a sesión");Field d=activity.getClass().getDeclaredField("driving");d.setAccessible(true);d.set(activity,false);check((Boolean)call("parked",new Class<?>[]{}),"Desbloqueo aparcada");d.set(activity,true);media.release();});Thread.sleep(400);
   wrapped(()->{call("bindSession",new Class<?>[]{});check(!((Button)field("play")).isEnabled(),"Cierre de sesión desactiva controles");});
   Activity map = startActivitySync(new Intent().setClassName("es.maria.rutapanel",

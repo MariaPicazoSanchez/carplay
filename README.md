@@ -14,6 +14,8 @@ Panel personal para Android 8 o posterior, en español, con Google Maps integrad
 
 Abre **Mapa** para ver Google Maps. La primera vez, pulsa **Permitir ubicación**, lee la explicación y concede ubicación precisa para usar el GPS y la orientación por rumbo.
 
+Ruta muestra la canción, el artista y el reproductor que publica una sesión multimedia en Android. Cuando hay varios reproductores sonando a la vez, da prioridad a Spotify, luego a YouTube Music y después a los demás. Si pausas desde Ruta, el botón de reproducción retoma la misma sesión mientras no empiece a sonar otra. Los controles de pista anterior, siguiente, pausa y reproducción dependen de las acciones que publique el reproductor.
+
 El sonido sale por la salida que ya tenga seleccionada Android (altavoz o Bluetooth del coche). Ruta no empareja dispositivos ni necesita modificar el coche.
 
 ## Navegación y pantalla dividida
