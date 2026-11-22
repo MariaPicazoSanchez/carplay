@@ -617,7 +617,6 @@ public final class MapActivity extends MediaActivity implements LocationListener
                 String message;
                 switch (status) {
                     case NETWORK_ERROR:
-                    case ROUTING_TIMEOUT:
                         message = "No se pudo calcular la ruta. Comprueba tu conexión.";
                         break;
                     case LOCATION_DISABLED:
