@@ -1,0 +1,10 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+OK: sin permisos solicitados; no depurable; sin bibliotecas nativas ni assets ejecutables; firma válida.
+SHA-256: 082e147f64837e214fd610fb51373ce4106f02812592011387424b203ec7ebdf

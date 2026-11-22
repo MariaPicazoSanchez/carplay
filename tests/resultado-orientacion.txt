@@ -1,0 +1,2 @@
+Vertical: arranque comprobado y captura revisada.
+Horizontal: UiAutomator devolvió «null root node returned by UiTestAutomationBridge» en dos intentos. Comprobación visual pendiente. No se ha obtenido un registro concluyente que identifique la causa.

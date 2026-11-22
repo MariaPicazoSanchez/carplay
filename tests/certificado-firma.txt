@@ -1,0 +1,4 @@
+Signer #1 certificate DN: CN=Ruta Panel personal, O=Proyecto personal, C=ES
+Signer #1 certificate SHA-256 digest: 4f720848f6a1669e57e7164f736528e7ec9256ef031989ff40a8dd8427e2c36e
+Signer #1 certificate SHA-1 digest: c1187fb558748e3b52c301ce28f140e930585548
+Signer #1 certificate MD5 digest: c7ce7b57c9ddb50f97cb67f9ee1195b2

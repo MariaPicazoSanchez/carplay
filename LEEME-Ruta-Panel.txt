@@ -1,0 +1,30 @@
+RUTA · PANEL 1.0.0 — EN ESPAÑOL
+
+Instala solo Ruta-Panel-1.0.0.apk en un móvil Android 8 o posterior.
+Mantén Play Protect activado. Si detecta una amenaza, no ignores su aviso.
+
+Configura la app con el vehículo aparcado. Pulsa «He aparcado» para
+acceder a ajustes, elegir Maps/Waze y guardar casa y trabajo.
+
+El control de música requiere acceso opcional a notificaciones. Es un
+permiso amplio de Android, aunque Ruta no procesa los mensajes. Sin ese
+acceso puedes abrir Spotify o YouTube Music desde el panel.
+
+La navegación se abre en Maps o Waze: no hay un mapa integrado.
+Para ver GPS y música a la vez utiliza pantalla dividida si el móvil
+la admite. Abre Recientes, toca el icono de Ruta, elige pantalla dividida
+y selecciona tu app de mapas. Los pasos varían según el fabricante.
+
+La APK no solicita Internet, GPS, contactos, micrófono o archivos.
+No contiene anuncios, analítica ni cuentas. Las apps de mapas y música
+usan sus propios permisos y conexiones. Las direcciones se guardan
+localmente; puedes borrarlas desde ajustes.
+
+El modo conducción es MANUAL: no detecta movimiento ni bloquea otras apps.
+No hay garantía de riesgo cero ni certificación de seguridad vial.
+La APK se ha instalado en Android 9 de prueba y ha pasado 12 comprobaciones
+funcionales con una sesión de música de prueba. No se ha probado en tu móvil real. La pantalla encendida puede consumir
+batería y calentar el teléfono. No manipules destinos o ajustes al conducir.
+
+El ZIP de código incluye el proyecto completo, pruebas y documentación.
+No necesitas compilar nada para instalar la APK entregada.
