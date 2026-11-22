@@ -39,6 +39,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.osmdroid.config.Configuration;
+import org.osmdroid.config.IConfigurationProvider;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
@@ -191,7 +192,7 @@ public final class MapActivity extends MediaActivity implements LocationListener
 
     /** Mapa de OpenStreetMap: no necesita clave ni Servicios de Google Play. */
     private MapView createMap(String userAgent, Bundle state) {
-        Configuration config = Configuration.getInstance();
+        IConfigurationProvider config = Configuration.getInstance();
         config.load(getApplicationContext(), getSharedPreferences("osmdroid", MODE_PRIVATE));
         config.setUserAgentValue(userAgent);
         File base = new File(getCacheDir(), "osmdroid");
