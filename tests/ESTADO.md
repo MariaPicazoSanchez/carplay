@@ -1,4 +1,4 @@
-# Estado de validación
+# Estado de validación de la APK 1.0.0 archivada en dist/
 
 ## Comprobado
 

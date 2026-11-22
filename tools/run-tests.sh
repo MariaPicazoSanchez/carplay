@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-adb install -r build/Ruta-Panel-1.0.0.apk
+adb install -r build/Ruta-Panel-1.1.0.apk
 adb install -r -t build/tests/tests.apk
 adb shell cmd notification allow_listener es.maria.rutapanel/.MediaAccessService
 adb shell am instrument -w -r es.maria.rutapanel.tests/.PanelTests | tr -d '\r' | tee build/instrumentation.txt

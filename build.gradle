@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application' version '8.9.2'
+}
+
+android {
+    namespace 'es.maria.rutapanel'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'es.maria.rutapanel'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '1.1.0'
+        manifestPlaceholders = [mapsApiKey: providers.environmentVariable('RUTA_MAPS_API_KEY')
+            .orElse(providers.gradleProperty('RUTA_MAPS_API_KEY')).getOrElse('RUTA_MAPS_UNCONFIGURED')]
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.gms:play-services-maps:19.2.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

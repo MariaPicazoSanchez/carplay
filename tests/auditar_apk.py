@@ -1,29 +1,45 @@
 #!/usr/bin/env python3
-"""Checks the delivered APK, not just its source manifest."""
-import os, pathlib, subprocess, xml.etree.ElementTree as ET, zipfile, hashlib
-root=pathlib.Path(__file__).resolve().parents[1]
-apk=root/'build/Ruta-Panel-1.0.0.apk'
-bt=pathlib.Path(os.environ['ANDROID_HOME'])/'build-tools/35.0.0'
-badging=subprocess.check_output([str(bt/'aapt'),'dump','badging',str(apk)],text=True)
-assert 'uses-permission:' not in badging, badging
+"""Checks the packaged APK after Gradle and Google Maps merge the manifests."""
+import hashlib
+import os
+import re
+import subprocess
+import zipfile
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+apk = root / 'build/Ruta-Panel-1.1.0.apk'
+tools = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0'
+aapt = tools / ('aapt.exe' if os.name == 'nt' else 'aapt')
+apksigner = tools / ('apksigner.bat' if os.name == 'nt' else 'apksigner')
+
+badging = subprocess.check_output([aapt, 'dump', 'badging', apk], text=True, encoding='utf-8')
+permissions = set(re.findall(r"^uses-permission(?:-sdk-\d+)?: name='([^']+)'", badging, re.M))
+required = {
+    'android.permission.INTERNET',
+    'android.permission.ACCESS_FINE_LOCATION',
+    'android.permission.ACCESS_COARSE_LOCATION',
+}
+allowed = required | {
+    'android.permission.ACCESS_NETWORK_STATE',
+    'android.permission.ACCESS_WIFI_STATE',
+    'es.maria.rutapanel.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+}
+assert required <= permissions, required - permissions
+assert permissions <= allowed, permissions - allowed
 assert 'application-debuggable' not in badging
 assert "sdkVersion:'26'" in badging
-binary_manifest=subprocess.check_output([str(bt/'aapt'),'dump','xmltree',str(apk),'AndroidManifest.xml'],text=True)
-assert 'android:allowBackup(0x01010280)=(type 0x12)0x0' in binary_manifest
-assert 'android:usesCleartextTraffic(0x010104ec)=(type 0x12)0x0' in binary_manifest
-assert 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' in binary_manifest
-manifest=ET.parse(root/'AndroidManifest.xml').getroot()
-ns='{http://schemas.android.com/apk/res/android}'
-app=manifest.find('application')
-assert app.get(ns+'allowBackup')=='false'
-assert app.get(ns+'usesCleartextTraffic')=='false'
-assert not list(manifest.findall('uses-permission'))
-service=app.find('service')
-assert service.get(ns+'permission')=='android.permission.BIND_NOTIFICATION_LISTENER_SERVICE'
-assert len(list(app.findall('activity')))==1
-with zipfile.ZipFile(apk) as z:
- assert set(n for n in z.namelist() if n.endswith('.dex'))=={'classes.dex'}
- assert not any(n.startswith(('lib/','assets/')) for n in z.namelist())
-subprocess.run([str(bt/'apksigner'),'verify','--verbose',str(apk)],check=True)
-print('OK: sin permisos solicitados; no depurable; sin bibliotecas nativas ni assets ejecutables; firma válida.')
-print('SHA-256:',hashlib.sha256(apk.read_bytes()).hexdigest())
+
+manifest = subprocess.check_output([aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml'],
+                                   text=True, encoding='utf-8')
+assert 'android:allowBackup(0x01010280)=(type 0x12)0x0' in manifest
+assert 'android:usesCleartextTraffic(0x010104ec)=(type 0x12)0x0' in manifest
+assert 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' in manifest
+assert 'com.google.android.geo.API_KEY' in manifest
+
+with zipfile.ZipFile(apk) as archive:
+    assert 'classes.dex' in archive.namelist()
+
+subprocess.run([apksigner, 'verify', '--verbose', apk], check=True)
+print('OK: ubicación en primer plano, sin depuración y firma válida.')
+print('SHA-256:', hashlib.sha256(apk.read_bytes()).hexdigest())

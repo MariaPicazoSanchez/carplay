@@ -22,12 +22,36 @@ public final class PanelTests extends Instrumentation {
  @Override public void onStart(){Bundle out=new Bundle();try{
   getTargetContext().getSharedPreferences("local",0).edit().clear().putBoolean("intro",true).commit();
   activity=startActivitySync(new Intent().setClassName("es.maria.rutapanel","es.maria.rutapanel.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
-  wrapped(()->{check((Boolean)field("driving"),"Conducción por defecto");check(!(Boolean)call("parked",new Class<?>[]{}),"Bloqueo manual activo");check(!((Button)field("play")).isEnabled(),"Sin sesión no hay reproducción");check(getTargetContext().getPackageManager().getPackageInfo("es.maria.rutapanel",4096).requestedPermissions==null,"Cero permisos solicitados");call("openPlayer",new Class<?>[]{String.class},"no.instalada");call("openMap",new Class<?>[]{String.class},"Prueba & lugar #1");});
+  wrapped(()->{check((Boolean)field("driving"),"Conducción por defecto");check(!(Boolean)call("parked",new Class<?>[]{}),"Bloqueo manual activo");check(!((Button)field("play")).isEnabled(),"Sin sesión no hay reproducción");java.util.List<String> permissions = java.util.Arrays.asList(getTargetContext().getPackageManager().getPackageInfo("es.maria.rutapanel",4096).requestedPermissions);
+   check(permissions.contains(android.Manifest.permission.ACCESS_FINE_LOCATION)
+       && permissions.contains(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+       && !permissions.contains("android.permission.ACCESS_BACKGROUND_LOCATION"), "Ubicación solo en primer plano");call("openPlayer",new Class<?>[]{String.class},"no.instalada");call("openMap",new Class<?>[]{String.class},"Prueba & lugar #1");});
   wrapped(()->{media=new MediaSession(getTargetContext(),"Sesión de prueba");media.setCallback(new MediaSession.Callback(){public void onPlay(){plays++;state(PlaybackState.STATE_PLAYING);}public void onPause(){pauses++;state(PlaybackState.STATE_PAUSED);}public void onSkipToNext(){nexts++;}public void onSkipToPrevious(){prevs++;}});media.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,"Canción de prueba").putString(MediaMetadata.METADATA_KEY_ARTIST,"Artista de prueba").putLong(MediaMetadata.METADATA_KEY_DURATION,180000).build());state(PlaybackState.STATE_PAUSED);media.setActive(true);});
   Thread.sleep(800);wrapped(()->{call("bindSession",new Class<?>[]{});check(((TextView)field("title")).getText().toString().equals("Canción de prueba"),"Metadata real de MediaSession");check(((Button)field("play")).isEnabled(),"Control activado");call("transport",new Class<?>[]{int.class},1);});Thread.sleep(400);
   wrapped(()->{check(plays==1,"PLAY enviado a sesión");call("transport",new Class<?>[]{int.class},1);call("transport",new Class<?>[]{int.class},2);call("transport",new Class<?>[]{int.class},0);});Thread.sleep(400);
   wrapped(()->{check(pauses==1,"PAUSE enviado a sesión");check(nexts==1,"NEXT enviado a sesión");check(prevs==1,"PREVIOUS enviado a sesión");Field d=activity.getClass().getDeclaredField("driving");d.setAccessible(true);d.set(activity,false);check((Boolean)call("parked",new Class<?>[]{}),"Desbloqueo aparcada");d.set(activity,true);media.release();});Thread.sleep(400);
   wrapped(()->{call("bindSession",new Class<?>[]{});check(!((Button)field("play")).isEnabled(),"Cierre de sesión desactiva controles");});
+  Activity map = startActivitySync(new Intent().setClassName("es.maria.rutapanel",
+      "es.maria.rutapanel.MapActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+  main(() -> {
+      int fieldId = map.getResources().getIdentifier("map_destination", "id", "es.maria.rutapanel");
+      check(map.findViewById(fieldId) instanceof EditText, "Mapa ofrece un campo de destino");
+      android.view.View decor = map.getWindow().getDecorView();
+      check(hasText(decor, "Permitir ubicación") || hasText(decor, "Abrir ajustes de la app"),
+          "Mapa ofrece activar la ubicación cuando falta el permiso");
+      map.finish();
+  });
   out.putString("stream","OK: "+checks+" comprobaciones funcionales.\n");finish(Activity.RESULT_OK,out);
  }catch(Throwable e){out.putString("stream","ERROR: "+e.toString()+"\n"+android.util.Log.getStackTraceString(e));finish(Activity.RESULT_CANCELED,out);}}
+
+ private boolean hasText(android.view.View view, String text) {
+     if (view instanceof TextView && text.contentEquals(((TextView) view).getText())) return true;
+     if (view instanceof android.view.ViewGroup) {
+         android.view.ViewGroup group = (android.view.ViewGroup) view;
+         for (int i = 0; i < group.getChildCount(); i++) {
+             if (hasText(group.getChildAt(i), text)) return true;
+         }
+     }
+     return false;
+ }
 }
