@@ -139,14 +139,7 @@ public final class MapActivity extends MediaActivity implements LocationListener
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACKGROUND);
-        root.setFitsSystemWindows(true);
         root.setFocusableInTouchMode(true);
-        LinearLayout navigation = new LinearLayout(this);
-        navigation.addView(button("Inicio", this::finish));
-        TextView title = text("Mapa");
-        title.setGravity(Gravity.CENTER_VERTICAL);
-        navigation.addView(title, new LinearLayout.LayoutParams(0, -1, 1));
-        root.addView(navigation);
 
         LinearLayout search = new LinearLayout(this);
         destination = new EditText(this);
@@ -188,7 +181,10 @@ public final class MapActivity extends MediaActivity implements LocationListener
         permissionAction = button("", this::handleLocationAction);
         root.addView(permissionAction);
         root.addView(buildMusicBar());
-        setContentView(root);
+        LinearLayout screen = withRail(NAV_MAP, root);
+        screen.setBackgroundColor(BACKGROUND);
+        screen.setFitsSystemWindows(true);
+        setContentView(screen);
         root.requestFocus();
         showGps();
     }
@@ -251,6 +247,17 @@ public final class MapActivity extends MediaActivity implements LocationListener
             }
         });
         return view;
+    }
+
+    @Override protected void onNavigate(int item) {
+        if (item == NAV_MAP) {
+            // Ya estás en Mapa: vuelve a centrar en tu posición.
+            handler.removeCallbacks(resumeFollowing);
+            following = true;
+            updateCamera();
+            return;
+        }
+        super.onNavigate(item);
     }
 
     private LinearLayout buildMusicBar() {

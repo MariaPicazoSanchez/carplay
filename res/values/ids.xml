@@ -4,4 +4,5 @@
     <item type="id" name="enable_music"/>
     <item type="id" name="map_now_playing"/>
     <item type="id" name="find_route"/>
+    <item type="id" name="nav_rail"/>
 </resources>

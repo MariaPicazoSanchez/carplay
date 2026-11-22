@@ -45,13 +45,23 @@ public final class MainActivity extends MediaActivity {
             .setMessage("Configura todo con el vehículo aparcado. El modo conducción es manual: bloquea destinos y ajustes, pero no detecta movimiento.\n\nLa pestaña Mapa muestra tu ubicación si la autorizas. Puedes buscar e iniciar una ruta en esa pantalla. Esta app no sustituye un sistema homologado ni garantiza evitar distracciones.")
             .setPositiveButton("Entendido",(d,w)->prefs().edit().putBoolean("intro",true).apply()).setCancelable(false).show();
     }
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);openRequestedSettings();}
+    @Override protected void onPostCreate(Bundle state){super.onPostCreate(state);if(state==null)openRequestedSettings();}
+    /** Ajustes pedido desde la barra lateral de otra pantalla. */
+    private void openRequestedSettings(){Intent i=getIntent();if(i!=null&&i.getBooleanExtra(EXTRA_OPEN_SETTINGS,false)){i.removeExtra(EXTRA_OPEN_SETTINGS);settings();}}
+    @Override protected void onNavigate(int item){
+        if(item==NAV_HOME)return;
+        if(item==NAV_SETTINGS){settings();return;}
+        super.onNavigate(item);
+    }
     @Override public void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putBoolean("driving",driving);}
     private void build(){
         LinearLayout root=column();root.setPadding(dp(18),dp(10),dp(18),dp(10));root.setBackgroundColor(BG);
-        root.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(dp(18)+i.left,dp(10)+i.top,dp(18)+i.right,dp(10)+i.bottom);}else{v.setPadding(dp(18)+insets.getSystemWindowInsetLeft(),dp(10)+insets.getSystemWindowInsetTop(),dp(18)+insets.getSystemWindowInsetRight(),dp(10)+insets.getSystemWindowInsetBottom());}return insets;});
-        boolean wide=getResources().getConfiguration().screenWidthDp>=680;
+        LinearLayout screen=withRail(NAV_HOME,root);screen.setBackgroundColor(BG);
+        screen.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(i.left,i.top,i.right,i.bottom);}else{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());}return insets;});
+        boolean wide=getResources().getConfiguration().screenWidthDp-76>=600;
         LinearLayout header=row();TextView brand=label("RUTA  /  TU PANEL",14,ACCENT);brand.setTypeface(null,1);header.addView(brand,new LinearLayout.LayoutParams(0,dp(40),1));brand.setGravity(Gravity.CENTER_VERTICAL);
-        clock=label("--:--",25,TEXT);clock.setTypeface(null,1);if(wide){Button settingsButton=button("Ajustes",this::settings);settingsButton.setTextSize(13);LinearLayout.LayoutParams sl=lp(90,48);sl.rightMargin=dp(18);header.addView(settingsButton,sl);}header.addView(clock);root.addView(header);space(root,8);
+        clock=label("--:--",25,TEXT);clock.setTypeface(null,1);header.addView(clock);root.addView(header);space(root,8);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout content=wide?row():column();content.setGravity(Gravity.TOP);scroll.addView(content);
         LinearLayout nav=column();nav.setPadding(dp(18),dp(wide?10:18),dp(18),dp(wide?10:18));nav.setBackground(shape(CARD,26));
@@ -74,8 +84,7 @@ public final class MainActivity extends MediaActivity {
         enableMusic=button("Activar controles de música",this::musicPermission);
         enableMusic.setId(R.id.enable_music);
         media.addView(enableMusic,lp(-1,56));
-        if(!wide)addButton(media,"Ajustes y privacidad",this::settings);
-        space(root,10);LinearLayout footer=row();lockLabel=label(driving?"●  Modo conducción · manual":"●  Aparcada · configuración",13,driving?ACCENT:MUTED);footer.addView(lockLabel,new LinearLayout.LayoutParams(0,-2,1));Button mode=button(driving?"He aparcado":"Iniciar trayecto",this::toggleMode);mode.setTextSize(14);footer.addView(mode,lp(156,56));root.addView(footer);setContentView(root);renderMedia();
+        space(root,10);LinearLayout footer=row();lockLabel=label(driving?"●  Modo conducción · manual":"●  Aparcada · configuración",13,driving?ACCENT:MUTED);footer.addView(lockLabel,new LinearLayout.LayoutParams(0,-2,1));Button mode=button(driving?"He aparcado":"Iniciar trayecto",this::toggleMode);mode.setTextSize(14);footer.addView(mode,lp(156,56));root.addView(footer);setContentView(screen);renderMedia();
     }
     @Override protected void onResume() {
         super.onResume();
@@ -130,18 +139,11 @@ public final class MainActivity extends MediaActivity {
     private void settings(){if(!parked())return;String[] options={"Activar o revocar control de música","Guardar dirección de casa","Guardar dirección del trabajo","Créditos del mapa","Privacidad y seguridad","Borrar direcciones guardadas"};new AlertDialog.Builder(this).setTitle("Ajustes · Ruta").setItems(options,(d,w)->{switch(w){case 0:musicPermission();break;case 1:editFavorite("casa");break;case 2:editFavorite("trabajo");break;case 3:showNavigationNotices();break;case 4:message("Privacidad y seguridad","Ruta 1.2.0 · Android 8 o posterior\n\nEl mapa de OpenStreetMap usa Internet para descargar las teselas. Ruta solicita ubicación para mostrar tu posición, precisión y velocidad mientras tienes Mapa abierto. Las coordenadas no se guardan en Ruta. No lee mensajes ni guarda notificaciones.\n\nEl acceso opcional a notificaciones autoriza al sistema a entregarlas, aunque esta app no procesa su contenido. Solo consulta sesiones de música y mantiene título, artista y carátula en memoria mientras la pantalla está abierta.\n\nLas direcciones se guardan en el espacio privado de la app, sin copia de seguridad. Al calcular una ruta, Ruta descarga la red de carreteras de OpenStreetMap (Overpass) alrededor del origen y del destino y calcula el trayecto en el propio móvil con el algoritmo A*. Para trayectos de más de 60 km, el servidor público OSRM recibe el origen y el destino. El buscador de direcciones recibe el texto que escribes.\n\nEl modo conducción es manual, no detecta movimiento y no bloquea otras apps. El móvil puede calentarse y consumir batería con la pantalla encendida.\n\nNo hay garantía de riesgo cero, certificación para conducción ni auditoría independiente.");break;case 5:new AlertDialog.Builder(this).setTitle("¿Borrar casa y trabajo?").setNegativeButton("Cancelar",null).setPositiveButton("Borrar",(a,n)->{prefs().edit().remove("casa").remove("trabajo").apply();toast("Direcciones borradas.");}).show();break;}}).setNegativeButton("Cerrar",null).show();}
     private void showNavigationNotices() {
         message("Créditos del mapa", "Mapa y datos de carreteras © colaboradores de OpenStreetMap, "
-                + "disponibles bajo la licencia Open Database License (ODbL): openstreetmap.org/copyright
-
-"
-                + "Teselas del mapa: servidores de la Fundación OpenStreetMap.
-"
-                + "Red de carreteras para el cálculo de rutas: Overpass API.
-"
-                + "Búsqueda de direcciones: buscador del sistema o Nominatim (OpenStreetMap).
-"
-                + "Trayectos largos: servidor público OSRM.
-
-"
+                + "disponibles bajo la licencia Open Database License (ODbL): openstreetmap.org/copyright\n\n"
+                + "Teselas del mapa: servidores de la Fundación OpenStreetMap.\n"
+                + "Red de carreteras para el cálculo de rutas: Overpass API.\n"
+                + "Búsqueda de direcciones: buscador del sistema o Nominatim (OpenStreetMap).\n"
+                + "Trayectos largos: servidor público OSRM.\n\n"
                 + "Visor de mapas: osmdroid (Apache License 2.0).");
     }
 

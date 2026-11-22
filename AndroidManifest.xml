@@ -15,6 +15,11 @@
   <uses-permission-sdk-m android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
+  <!-- La barra lateral abre la app de música y lista las apps instaladas (Android 11+). -->
+  <queries>
+    <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
+    <intent><action android:name="android.intent.action.DIAL"/></intent>
+  </queries>
   <application android:label="Ruta · Panel" android:theme="@style/AppTheme" android:icon="@drawable/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
     <activity android:name=".MapActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
     <activity android:name=".MainActivity" android:exported="true" android:resizeableActivity="true" android:windowSoftInputMode="adjustResize">
