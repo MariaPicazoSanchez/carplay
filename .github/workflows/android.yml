@@ -28,6 +28,7 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Build and verify signed APKs
+        id: build_apk
         env:
           RELEASE_KEY_BASE64: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.RUTA_SIGNING_KEY_BASE64 || '' }}
           RUTA_KEY_PASSWORD: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.RUTA_KEY_PASSWORD || '' }}
@@ -50,6 +51,12 @@ jobs:
             exit 1
           fi
           unset RELEASE_KEY_BASE64
+          if [[ -n "${RUTA_MAPS_API_KEY:-}" ]]; then
+            echo "artifact=Ruta-Panel-Android-con-rutas" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact=Ruta-Panel-Android-sin-clave-navegacion" >> "$GITHUB_OUTPUT"
+            echo "::warning::La navegación integrada requiere RUTA_MAPS_API_KEY y una clave de firma estable."
+          fi
           bash tools/build.sh
           bash tools/build-tests.sh
           python3 tests/auditar_apk.py
@@ -71,13 +78,13 @@ jobs:
 
       - name: Generate APK checksum
         working-directory: build
-        run: sha256sum Ruta-Panel-1.1.0.apk > SHA256.txt
+        run: sha256sum Ruta-Panel-1.2.0.apk > SHA256.txt
 
       - name: Upload tested APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ruta-Panel-Android
+          name: ${{ steps.build_apk.outputs.artifact }}
           path: |
-            build/Ruta-Panel-1.1.0.apk
+            build/Ruta-Panel-1.2.0.apk
             build/SHA256.txt
           if-no-files-found: error

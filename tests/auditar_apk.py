@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-apk = root / 'build/Ruta-Panel-1.1.0.apk'
+apk = root / 'build/Ruta-Panel-1.2.0.apk'
 tools = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0'
 aapt = tools / ('aapt.exe' if os.name == 'nt' else 'aapt')
 apksigner = tools / ('apksigner.bat' if os.name == 'nt' else 'apksigner')
@@ -23,6 +23,12 @@ required = {
 allowed = required | {
     'android.permission.ACCESS_NETWORK_STATE',
     'android.permission.ACCESS_WIFI_STATE',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_LOCATION',
+    'android.permission.POST_NOTIFICATIONS',
+    'android.permission.VIBRATE',
+    'android.permission.WAKE_LOCK',
+    'com.google.android.providers.gsf.permission.READ_GSERVICES',
     'es.maria.rutapanel.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
 }
 assert required <= permissions, required - permissions

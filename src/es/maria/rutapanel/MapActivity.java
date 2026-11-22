@@ -1,7 +1,6 @@
 package es.maria.rutapanel;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -11,9 +10,13 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.MediaMetadata;
+import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
@@ -21,6 +24,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.text.InputFilter;
 import android.view.Gravity;
 import android.view.View;
@@ -36,23 +40,43 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.LocationSource;
-import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MapColorScheme;
+import com.google.android.libraries.navigation.ForceNightMode;
+import com.google.android.libraries.navigation.NavigationApi;
+import com.google.android.libraries.navigation.NavigationView;
+import com.google.android.libraries.navigation.Navigator;
+import com.google.android.libraries.navigation.RoutingOptions;
+import com.google.android.libraries.navigation.Waypoint;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-public final class MapActivity extends Activity implements LocationListener, LocationSource {
+public final class MapActivity extends MediaActivity implements LocationListener {
+    static final String EXTRA_DESTINATION = "es.maria.rutapanel.DESTINATION";
     private static final int REQUEST_LOCATION = 1;
     private static final float ROUTE_LOCK_KMH = 11f;
     private static final long FIX_TIMEOUT_MS = 10_000;
+    private static final long ROUTE_TIMEOUT_MS = 45_000;
     private static final int BACKGROUND = Color.rgb(16, 24, 23);
     private static final int PANEL = Color.rgb(29, 40, 37);
     private static final int FOREGROUND = Color.rgb(242, 246, 239);
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService geocoding = Executors.newSingleThreadExecutor();
+    private final Runnable routeTimeout = () -> {
+        stopRoute();
+        toast("La búsqueda tardó demasiado. Comprueba la conexión y vuelve a intentarlo.");
+    };
+    private final Navigator.ArrivalListener arrival = event -> {
+        stopRoute();
+        toast("Has llegado al destino.");
+    };
     private final Runnable expireFix = () -> {
         lastFix = null;
         setDotEnabled(false);
@@ -64,14 +88,24 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         }
     };
     private LocationManager locationManager;
-    private MapView mapView;
+    private NavigationView mapView;
+    private Navigator navigator;
+    private AlertDialog destinationPicker;
+    private Future<?> pendingSearch;
+    private int routeRequest;
+    private boolean searching;
+    private boolean guiding;
+    private Button center;
     private GoogleMap map;
     private Location lastFix;
-    private OnLocationChangedListener dot;
     private TextView gps;
     private EditText destination;
     private Button route;
     private Button permissionAction;
+    private TextView nowPlaying;
+    private Button musicPrevious;
+    private Button musicToggle;
+    private Button musicNext;
     private boolean foreground;
     private boolean tracking;
     private boolean following = true;
@@ -105,6 +139,7 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         destination.setTextColor(FOREGROUND);
         destination.setHintTextColor(0xffb5c5bb);
         destination.setFilters(new InputFilter[]{new InputFilter.LengthFilter(240)});
+        if (state == null) destination.setText(getIntent().getStringExtra(EXTRA_DESTINATION));
         destination.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
         destination.setOnEditorActionListener((view, action, event) -> {
             if (action != android.view.inputmethod.EditorInfo.IME_ACTION_GO) return false;
@@ -112,7 +147,8 @@ public final class MapActivity extends Activity implements LocationListener, Loc
             return true;
         });
         search.addView(destination, new LinearLayout.LayoutParams(0, -2, 1));
-        route = button("Abrir ruta", this::openRoute);
+        route = button("Buscar ruta", this::openRoute);
+        route.setId(R.id.find_route);
         search.addView(route);
         root.addView(search);
 
@@ -120,9 +156,11 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         root.addView(mapArea, new LinearLayout.LayoutParams(-1, 0, 1));
         String problem = mapConfigurationProblem();
         if (problem == null) {
-            mapView = new MapView(this);
+            mapView = new NavigationView(this);
             mapArea.addView(mapView, new FrameLayout.LayoutParams(-1, -1));
             mapView.onCreate(state == null ? null : state.getBundle("map"));
+            mapView.setNavigationUiEnabled(false);
+            mapView.setForceNightMode(ForceNightMode.FORCE_NIGHT);
             mapView.getMapAsync(this::configureMap);
         } else {
             TextView message = text(problem);
@@ -131,9 +169,9 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         }
 
         gps = text("");
-        mapArea.addView(gps, overlay(Gravity.TOP | Gravity.LEFT, 12));
+        root.addView(gps);
         if (mapView != null) {
-            Button center = button("Centrar mapa", () -> {
+            center = button("Centrar mapa", () -> {
                 following = true;
                 updateCamera();
             });
@@ -141,9 +179,57 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         }
         permissionAction = button("", this::handleLocationAction);
         root.addView(permissionAction);
+        root.addView(buildMusicBar());
         setContentView(root);
         root.requestFocus();
         showGps();
+    }
+
+    private LinearLayout buildMusicBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        nowPlaying = text("");
+        nowPlaying.setId(R.id.map_now_playing);
+        nowPlaying.setMaxLines(2);
+        nowPlaying.setEllipsize(TextUtils.TruncateAt.END);
+        bar.addView(nowPlaying, new LinearLayout.LayoutParams(0, -2, 1));
+        musicPrevious = addMusicButton(bar, "|◀", "Canción anterior", 0);
+        musicToggle = addMusicButton(bar, "▶", "Reproducir", 1);
+        musicNext = addMusicButton(bar, "▶|", "Canción siguiente", 2);
+        return bar;
+    }
+
+    private Button addMusicButton(LinearLayout bar, String symbol, String description, int action) {
+        Button control = button(symbol, () -> transport(action));
+        control.setContentDescription(description);
+        control.setPadding(0, 0, 0, 0);
+        bar.addView(control, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        return control;
+    }
+
+    @Override protected void renderMedia() {
+        MediaMetadata metadata = controller == null ? null : controller.getMetadata();
+        PlaybackState state = controller == null ? null : controller.getPlaybackState();
+        String track = metadata == null ? null : metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
+        if (TextUtils.isEmpty(track) && metadata != null) {
+            track = metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+        }
+        String player = controller == null ? "" : playerLabel(controller.getPackageName());
+        if (!access()) {
+            nowPlaying.setText("Activa los controles de música en Inicio");
+        } else if (player.isEmpty()) {
+            nowPlaying.setText("Sin música activa");
+        } else {
+            nowPlaying.setText(TextUtils.isEmpty(track) ? player : track + "\n" + player);
+        }
+        long actions = state == null ? 0 : state.getActions();
+        boolean playing = isPlaying(state);
+        boolean canPause = (actions & (PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE)) != 0;
+        musicPrevious.setEnabled((actions & PlaybackState.ACTION_SKIP_TO_PREVIOUS) != 0);
+        musicNext.setEnabled((actions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0);
+        musicToggle.setEnabled((actions & playButtonActions(state)) != 0);
+        musicToggle.setText(!playing ? "▶" : canPause ? "Ⅱ" : "■");
+        musicToggle.setContentDescription(!playing ? "Reproducir" : canPause ? "Pausar" : "Detener");
     }
 
     private String mapConfigurationProblem() {
@@ -152,7 +238,7 @@ public final class MapActivity extends Activity implements LocationListener, Loc
                     PackageManager.GET_META_DATA).metaData;
             String key = metadata == null ? "" : metadata.getString("com.google.android.geo.API_KEY", "");
             if (key.trim().isEmpty() || key.equals("RUTA_MAPS_UNCONFIGURED")) {
-                return "Esta compilación necesita una clave de Google Maps.";
+                return "Este APK se generó sin credenciales de navegación. Instala la compilación con rutas.";
             }
         } catch (PackageManager.NameNotFoundException exception) {
             return "No se pudo leer la configuración del mapa.";
@@ -165,10 +251,8 @@ public final class MapActivity extends Activity implements LocationListener, Loc
     private void configureMap(GoogleMap readyMap) {
         if (isDestroyed()) return;
         map = readyMap;
-        map.setMapColorScheme(MapColorScheme.DARK);
         map.getUiSettings().setMyLocationButtonEnabled(false);
         map.getUiSettings().setMapToolbarEnabled(false);
-        map.setLocationSource(this);
         map.setOnCameraMoveStartedListener(reason -> {
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
                 following = false;
@@ -206,18 +290,24 @@ public final class MapActivity extends Activity implements LocationListener, Loc
     }
 
     @Override protected void onStop() {
+        stopRoute();
         if (mapView != null) mapView.onStop();
         super.onStop();
     }
 
     @Override protected void onDestroy() {
+        geocoding.shutdownNow();
+        if (navigator != null) {
+            navigator.removeArrivalListener(arrival);
+            navigator.cleanup();
+        }
         if (mapView != null) mapView.onDestroy();
         super.onDestroy();
     }
 
-    @Override public void onLowMemory() {
-        super.onLowMemory();
-        if (mapView != null) mapView.onLowMemory();
+    @Override public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (mapView != null) mapView.onTrimMemory(level);
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -340,17 +430,7 @@ public final class MapActivity extends Activity implements LocationListener, Loc
         handler.postDelayed(expireFix, FIX_TIMEOUT_MS - Math.max(0L, age));
         showGps();
         setDotEnabled(true);
-        if (dot != null) dot.onLocationChanged(location);
         updateCamera();
-    }
-
-    @Override public void activate(OnLocationChangedListener listener) {
-        dot = listener;
-        if (foreground && lastFix != null) dot.onLocationChanged(lastFix);
-    }
-
-    @Override public void deactivate() {
-        dot = null;
     }
 
     private void setDotEnabled(boolean enabled) {
@@ -363,7 +443,7 @@ public final class MapActivity extends Activity implements LocationListener, Loc
     }
 
     private void updateCamera() {
-        if (map == null || lastFix == null || !following) return;
+        if (map == null || lastFix == null || !following || guiding) return;
         Location fix = lastFix;
         CameraPosition.Builder camera = new CameraPosition.Builder(map.getCameraPosition())
                 .target(new LatLng(fix.getLatitude(), fix.getLongitude()));
@@ -400,26 +480,202 @@ public final class MapActivity extends Activity implements LocationListener, Loc
             getSystemService(android.view.inputmethod.InputMethodManager.class)
                     .hideSoftInputFromWindow(destination.getWindowToken(), 0);
         }
-        destination.setEnabled(!moving);
-        route.setEnabled(!moving);
+        destination.setEnabled(!moving && !searching && !guiding);
+        route.setEnabled(guiding || searching || (!moving && mapView != null));
+        route.setText(guiding ? "Finalizar ruta" : searching ? "Cancelar búsqueda" : "Buscar ruta");
+        if (center != null) center.setVisibility(guiding ? View.GONE : View.VISIBLE);
         destination.setHint(moving ? "Destino bloqueado en marcha" : "Dirección o lugar");
     }
 
     private void openRoute() {
-        if (moving) return;
+        if (searching || guiding) {
+            stopRoute();
+            return;
+        }
+        if (moving || mapView == null) return;
         String query = destination.getText().toString().trim();
         if (query.isEmpty()) {
             destination.setError("Escribe un destino");
             return;
         }
-        Intent intent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("google.navigation:q=" + Uri.encode(query) + "&mode=d"));
-        intent.setPackage("com.google.android.apps.maps");
-        try {
-            startActivity(intent);
-        } catch (ActivityNotFoundException | SecurityException exception) {
-            toast("Abre o instala Google Maps para iniciar la ruta.");
+        if (!precise() || !enabled(LocationManager.GPS_PROVIDER)) {
+            toast("Activa la ubicación precisa y el GPS para calcular la ruta.");
+            return;
         }
+        if (lastFix == null) {
+            toast("Espera a que el GPS encuentre tu posición.");
+            return;
+        }
+        if (!Geocoder.isPresent()) {
+            toast("Este dispositivo no dispone de búsqueda de direcciones.");
+            return;
+        }
+        int request = ++routeRequest;
+        searching = true;
+        showGps();
+        handler.postDelayed(routeTimeout, ROUTE_TIMEOUT_MS);
+        pendingSearch = geocoding.submit(() -> {
+            try {
+                Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+                List<Address> results = geocoder.getFromLocationName(query, 5);
+                List<Address> matches = new ArrayList<>();
+                if (results != null) {
+                    for (Address address : results) {
+                        if (address.hasLatitude() && address.hasLongitude()) matches.add(address);
+                    }
+                }
+                handler.post(() -> selectDestination(request, query, matches));
+            } catch (IOException | IllegalArgumentException e) {
+                handler.post(() -> routeError(request, "No se pudo buscar la dirección. Comprueba la conexión."));
+            }
+        });
+    }
+
+    private void selectDestination(int request, String query, List<Address> matches) {
+        if (!isCurrentRoute(request)) return;
+        handler.removeCallbacks(routeTimeout);
+        if (matches.isEmpty()) {
+            routeError(request, "No se encontró el destino. Añade la ciudad o el código postal.");
+            return;
+        }
+        if (moving) {
+            routeError(request, "Busca y confirma tu destino cuando estés detenida.");
+            return;
+        }
+        String[] labels = new String[matches.size()];
+        for (int i = 0; i < matches.size(); i++) {
+            String label = matches.get(i).getAddressLine(0);
+            labels[i] = TextUtils.isEmpty(label) ? query : label;
+        }
+        destinationPicker = new AlertDialog.Builder(this)
+                .setTitle("Confirma el destino")
+                .setItems(labels, (dialog, index) -> {
+                    destinationPicker = null;
+                    if (!isCurrentRoute(request)) return;
+                    Address address = matches.get(index);
+                    Waypoint waypoint = Waypoint.builder().setTitle(labels[index])
+                            .setLatLng(address.getLatitude(), address.getLongitude()).build();
+                    requestGuidance(request, waypoint);
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> stopRoute())
+                .setOnCancelListener(dialog -> stopRoute())
+                .show();
+    }
+
+    private void requestGuidance(int request, Waypoint waypoint) {
+        if (moving || !precise() || lastFix == null) {
+            routeError(request, "Confirma el destino con el coche detenido y el GPS activo.");
+            return;
+        }
+        if (navigator != null) {
+            calculateRoute(request, waypoint);
+            return;
+        }
+        NavigationApi.getNavigator(this, new NavigationApi.NavigatorListener() {
+            @Override public void onNavigatorReady(Navigator ready) {
+                if (!isCurrentRoute(request)) return;
+                navigator = ready;
+                navigator.setTaskRemovedBehavior(Navigator.TaskRemovedBehavior.QUIT_SERVICE);
+                navigator.addArrivalListener(arrival);
+                calculateRoute(request, waypoint);
+            }
+
+            @Override public void onError(int code) {
+                String message;
+                switch (code) {
+                    case NavigationApi.ErrorCode.NOT_AUTHORIZED:
+                        message = "La clave de esta compilación no está autorizada para Navigation SDK.";
+                        break;
+                    case NavigationApi.ErrorCode.TERMS_NOT_ACCEPTED:
+                        message = "Acepta las condiciones de Google para iniciar la navegación.";
+                        break;
+                    case NavigationApi.ErrorCode.NETWORK_ERROR:
+                        message = "No se pudo conectar con Google. Comprueba tu conexión.";
+                        break;
+                    default:
+                        message = "No se pudo iniciar la navegación de Google (código " + code + ").";
+                }
+                routeError(request, message);
+            }
+        });
+    }
+
+    private void calculateRoute(int request, Waypoint waypoint) {
+        if (!isCurrentRoute(request)) return;
+        if (moving || !precise() || lastFix == null) {
+            routeError(request, "Para iniciar la ruta, detente y espera la ubicación GPS.");
+            return;
+        }
+        handler.postDelayed(routeTimeout, ROUTE_TIMEOUT_MS);
+        RoutingOptions options = new RoutingOptions()
+                .travelMode(RoutingOptions.TravelMode.DRIVING)
+                .routingStrategy(RoutingOptions.RoutingStrategy.DEFAULT_BEST);
+        navigator.setDestination(waypoint, options).setOnResultListener(status -> {
+            if (!isCurrentRoute(request)) return;
+            handler.removeCallbacks(routeTimeout);
+            if (status != Navigator.RouteStatus.OK) {
+                String message;
+                switch (status) {
+                    case NETWORK_ERROR:
+                    case ROUTING_TIMEOUT:
+                        message = "No se pudo calcular la ruta. Comprueba tu conexión.";
+                        break;
+                    case LOCATION_DISABLED:
+                    case LOCATION_UNKNOWN:
+                        message = "Google no pudo obtener tu posición. Comprueba el GPS.";
+                        break;
+                    case QUOTA_CHECK_FAILED:
+                        message = "Se ha alcanzado la cuota de navegación del proyecto.";
+                        break;
+                    default:
+                        message = "No se encontró una ruta en coche a ese destino.";
+                }
+                routeError(request, message);
+                return;
+            }
+            if (!precise() || lastFix == null) {
+                routeError(request, "No hay una posición GPS reciente para iniciar la ruta.");
+                return;
+            }
+            searching = false;
+            guiding = true;
+            mapView.setNavigationUiEnabled(true);
+            navigator.startGuidance();
+            showGps();
+        });
+    }
+
+    private boolean isCurrentRoute(int request) {
+        return searching && request == routeRequest && !isFinishing() && !isDestroyed();
+    }
+
+    private void routeError(int request, String message) {
+        if (!isCurrentRoute(request)) return;
+        stopRoute();
+        toast(message);
+    }
+
+    private void stopRoute() {
+        boolean hadRoute = searching || guiding;
+        routeRequest++;
+        searching = false;
+        guiding = false;
+        handler.removeCallbacks(routeTimeout);
+        if (pendingSearch != null) {
+            pendingSearch.cancel(true);
+            pendingSearch = null;
+        }
+        if (destinationPicker != null) {
+            destinationPicker.dismiss();
+            destinationPicker = null;
+        }
+        if (navigator != null && hadRoute) {
+            navigator.stopGuidance();
+            navigator.clearDestinations();
+            mapView.setNavigationUiEnabled(false);
+            following = true;
+        }
+        showGps();
     }
 
     private FrameLayout.LayoutParams overlay(int gravity, int bottom) {

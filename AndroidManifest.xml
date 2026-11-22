@@ -1,15 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-  <queries>
-    <package android:name="com.google.android.apps.maps"/>
-    <package android:name="com.waze"/>
-    <package android:name="com.spotify.music"/>
-    <package android:name="com.google.android.apps.youtube.music"/>
-    <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="geo"/></intent>
-    <intent><action android:name="android.intent.action.MUSIC_PLAYER"/></intent>
-  </queries>
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" tools:node="remove"/>
   <application android:label="Ruta · Panel" android:theme="@style/AppTheme" android:icon="@drawable/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
     <meta-data android:name="com.google.android.geo.API_KEY" android:value="${mapsApiKey}"/>
     <activity android:name=".MapActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>

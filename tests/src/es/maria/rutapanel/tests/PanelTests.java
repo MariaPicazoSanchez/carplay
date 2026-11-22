@@ -13,7 +13,19 @@ public final class PanelTests extends Instrumentation {
  private Activity activity;
  private void check(boolean ok,String msg){if(!ok)throw new AssertionError(msg);checks++;}
  private Object field(String n)throws Exception{Field f=activity.getClass().getDeclaredField(n);f.setAccessible(true);return f.get(activity);}
- private Object call(String name,Class<?>[] types,Object...args)throws Exception{Method m=activity.getClass().getDeclaredMethod(name,types);m.setAccessible(true);return m.invoke(activity,args);}
+ private Object call(String name, Class<?>[] types, Object... args) throws Exception {
+     for (Class<?> type = activity.getClass(); type != null; type = type.getSuperclass()) {
+         Method method;
+         try {
+             method = type.getDeclaredMethod(name, types);
+         } catch (NoSuchMethodException ignored) {
+             continue;
+         }
+         method.setAccessible(true);
+         return method.invoke(activity, args);
+     }
+     throw new NoSuchMethodException(name);
+ }
  private void main(Runnable r){runOnMainSync(r);waitForIdleSync();}
  private void wrapped(RunnableWithException r){main(()->{try{r.run();}catch(Exception e){throw new RuntimeException(e);}});}
  private interface RunnableWithException{void run()throws Exception;}
@@ -25,7 +37,7 @@ public final class PanelTests extends Instrumentation {
   wrapped(()->{check((Boolean)field("driving"),"Conducción por defecto");check(!(Boolean)call("parked",new Class<?>[]{}),"Bloqueo manual activo");check(!((Button)field("play")).isEnabled(),"Sin sesión no hay reproducción");java.util.List<String> permissions = java.util.Arrays.asList(getTargetContext().getPackageManager().getPackageInfo("es.maria.rutapanel",4096).requestedPermissions);
    check(permissions.contains(android.Manifest.permission.ACCESS_FINE_LOCATION)
        && permissions.contains(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-       && !permissions.contains("android.permission.ACCESS_BACKGROUND_LOCATION"), "Ubicación solo en primer plano");call("openPlayer",new Class<?>[]{String.class},"no.instalada");call("openMap",new Class<?>[]{String.class},"Prueba & lugar #1");});
+       && !permissions.contains("android.permission.ACCESS_BACKGROUND_LOCATION"), "Ubicación solo en primer plano");});
   wrapped(()->{media=new MediaSession(getTargetContext(),"Sesión de prueba");media.setCallback(new MediaSession.Callback(){public void onPlay(){plays++;state(PlaybackState.STATE_PLAYING);}public void onPause(){pauses++;state(PlaybackState.STATE_PAUSED);}public void onSkipToNext(){nexts++;}public void onSkipToPrevious(){prevs++;}});media.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,"Canción de prueba").putString(MediaMetadata.METADATA_KEY_ARTIST,"Artista de prueba").putLong(MediaMetadata.METADATA_KEY_DURATION,180000).build());state(PlaybackState.STATE_PAUSED);media.setActive(true);});
   Thread.sleep(800);wrapped(()->{call("bindSession",new Class<?>[]{});check(((TextView)field("title")).getText().toString().equals("Canción de prueba"),"Metadata real de MediaSession");check(((Button)field("play")).isEnabled(),"Control activado");call("transport",new Class<?>[]{int.class},1);});Thread.sleep(400);
   wrapped(()->{check(plays==1,"PLAY enviado a sesión");call("transport",new Class<?>[]{int.class},1);call("transport",new Class<?>[]{int.class},2);call("transport",new Class<?>[]{int.class},0);});Thread.sleep(400);
@@ -45,14 +57,33 @@ public final class PanelTests extends Instrumentation {
   });
   wrapped(()->{check(pauses==1,"PAUSE enviado a sesión");check(nexts==1,"NEXT enviado a sesión");check(prevs==1,"PREVIOUS enviado a sesión");Field d=activity.getClass().getDeclaredField("driving");d.setAccessible(true);d.set(activity,false);check((Boolean)call("parked",new Class<?>[]{}),"Desbloqueo aparcada");d.set(activity,true);media.release();});Thread.sleep(400);
   wrapped(()->{call("bindSession",new Class<?>[]{});check(!((Button)field("play")).isEnabled(),"Cierre de sesión desactiva controles");});
-  Activity map = startActivitySync(new Intent().setClassName("es.maria.rutapanel",
-      "es.maria.rutapanel.MapActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+  ActivityMonitor mapMonitor = addMonitor("es.maria.rutapanel.MapActivity", null, false);
+  main(() -> {
+      int mapButton = activity.getResources().getIdentifier("open_map", "id", "es.maria.rutapanel");
+      activity.findViewById(mapButton).performClick();
+  });
+  Activity map = waitForMonitorWithTimeout(mapMonitor, 5000);
+  check(map != null, "Mapa se abre dentro de Ruta desde el panel");
+  main(() -> {
+      media = new MediaSession(getTargetContext(), "Música junto al mapa");
+      media.setMetadata(new MediaMetadata.Builder().putString(
+          MediaMetadata.METADATA_KEY_TITLE, "Canción con el mapa abierto").build());
+      state(PlaybackState.STATE_PLAYING);
+      media.setActive(true);
+  });
+  Thread.sleep(1500);
   main(() -> {
       int fieldId = map.getResources().getIdentifier("map_destination", "id", "es.maria.rutapanel");
       check(map.findViewById(fieldId) instanceof EditText, "Mapa ofrece un campo de destino");
+      int routeId = map.getResources().getIdentifier("find_route", "id", "es.maria.rutapanel");
+      check(map.findViewById(routeId) instanceof Button, "Mapa ofrece buscar rutas dentro de Ruta");
+      int musicId = map.getResources().getIdentifier("map_now_playing", "id", "es.maria.rutapanel");
+      check(((TextView)map.findViewById(musicId)).getText().toString().contains("Canción con el mapa abierto"),
+          "Mapa muestra la sesión multimedia activa");
       android.view.View decor = map.getWindow().getDecorView();
       check(hasText(decor, "Permitir ubicación") || hasText(decor, "Abrir ajustes de la app"),
           "Mapa ofrece activar la ubicación cuando falta el permiso");
+      media.release();
       map.finish();
   });
   out.putString("stream","OK: "+checks+" comprobaciones funcionales.\n");finish(Activity.RESULT_OK,out);

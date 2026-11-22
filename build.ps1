@@ -22,7 +22,7 @@ try {
     Invoke-Checked 'gradle' @('--no-daemon','assembleRelease')
     $unsigned = @(Get-ChildItem 'build/outputs/apk/release/*-unsigned.apk' -File)
     if ($unsigned.Count -ne 1) { throw 'No se encontró una única APK de lanzamiento sin firmar.' }
-    $apk = 'build/Ruta-Panel-1.1.0.apk'
+    $apk = 'build/Ruta-Panel-1.2.0.apk'
     Invoke-Checked "$bt\apksigner.bat" @('sign','--ks',$KeyStore,'--ks-pass','env:RUTA_KEY_PASSWORD','--ks-key-alias','ruta','--out',$apk,$unsigned[0].FullName)
     Invoke-Checked "$bt\apksigner.bat" @('verify','--verbose',$apk)
     Write-Output "APK compilada: $apk"

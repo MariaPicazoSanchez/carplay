@@ -10,8 +10,8 @@ android {
         applicationId 'es.maria.rutapanel'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '1.1.0'
+        versionCode 4
+        versionName '1.2.0'
         manifestPlaceholders = [mapsApiKey: providers.environmentVariable('RUTA_MAPS_API_KEY')
             .orElse(providers.gradleProperty('RUTA_MAPS_API_KEY')).getOrElse('RUTA_MAPS_UNCONFIGURED')]
     }
@@ -21,12 +21,20 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
             res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
         }
+    }
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 }
 
 dependencies {
-    implementation 'com.google.android.gms:play-services-maps:19.2.0'
+    implementation 'com.google.android.libraries.navigation:navigation:6.3.3'
+    implementation 'com.google.android.gms:play-services-base:18.5.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
 }
 
 tasks.withType(JavaCompile).configureEach {
