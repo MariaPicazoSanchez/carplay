@@ -7,6 +7,11 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove"/>
   <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove"/>
   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove"/>
+  <!-- The manifest merger matches by tag as well as by permission name. -->
+  <uses-permission-sdk-23 android:name="android.permission.BLUETOOTH" tools:node="remove"/>
+  <uses-permission-sdk-23 android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove"/>
+  <uses-permission-sdk-m android:name="android.permission.BLUETOOTH" tools:node="remove"/>
+  <uses-permission-sdk-m android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
   <application android:label="Ruta · Panel" android:theme="@style/AppTheme" android:icon="@drawable/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
